@@ -134,7 +134,9 @@ class TestInfraMetadata:
         for cloud, pattern in NODE_NAME_RES.items():
             for _ in range(20):
                 assert pattern.match(faker.k8s_node_name(cloud))
-        assert any(pattern.match(faker.k8s_node_name()) for pattern in NODE_NAME_RES.values())
+        for _ in range(20):
+            node_name = faker.k8s_node_name()
+            assert any(pattern.match(node_name) for pattern in NODE_NAME_RES.values())
         with pytest.raises(ValueError):
             faker.k8s_node_name("ibm")
 
