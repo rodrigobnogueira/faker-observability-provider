@@ -150,6 +150,10 @@ Formats are implemented against: W3C Trace Context (`00` version), OpenTelemetry
 
 All generated data is **synthetic test data** for development and testing only. Names, formats, and topologies mimic real systems so records look realistic, but nothing here describes any real infrastructure or real telemetry.
 
+## Contributing
+
+Issues and PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the checks CI runs, and the determinism, trace/log and catalog rules a change has to keep.
+
 ## License
 
 MIT
