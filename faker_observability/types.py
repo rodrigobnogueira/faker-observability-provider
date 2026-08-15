@@ -57,6 +57,18 @@ class Span(TypedDict):
     resource: dict[str, str]
 
 
+class TraceContext(TypedDict):
+    """Accumulator threaded through the ``trace()`` materialization pass.
+
+    ``resources`` memoizes one resource-attribute dict per service so every
+    span of that service in the trace shares the same identity.
+    """
+
+    trace_id: str
+    spans: list[Span]
+    resources: dict[str, dict[str, str]]
+
+
 class LogRecord(TypedDict):
     """A structured application log record.
 

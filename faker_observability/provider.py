@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 
 from faker.providers import BaseProvider
 
 from . import constants
-from .types import AttributeValue, LogRecord, ObservabilityScenario, ServiceData, Span
+from .types import AttributeValue, LogRecord, ObservabilityScenario, ServiceData, Span, TraceContext
 
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -299,7 +300,7 @@ class ObservabilityProvider(BaseProvider):
             anchor = start_time
 
         plan = self._plan_node(root_service, depth=1, max_depth=max_depth)
-        context = {"trace_id": self.trace_id(), "spans": [], "resources": {}}
+        context: TraceContext = {"trace_id": self.trace_id(), "spans": [], "resources": {}}
         self._materialize_node(plan, parent_span_id="", start_ns=_to_unix_nano(anchor), context=context)
         spans: list[Span] = context["spans"]
         if error:
@@ -379,12 +380,12 @@ class ObservabilityProvider(BaseProvider):
         operation = self.random_element(tuple(dep_data["operations"]))
         return {"type": child_type, "service": dependency, "data": dep_data, "operation": operation, "visible_ns": duration_ns}
 
-    def _resource_for(self, service: str, context: dict) -> dict[str, str]:
+    def _resource_for(self, service: str, context: TraceContext) -> dict[str, str]:
         if service not in context["resources"]:
             context["resources"][service] = self.resource_attributes(service)
         return context["resources"][service]
 
-    def _append_span(self, context: dict, service: str, kind: str, name: str, attributes: dict[str, AttributeValue], parent_span_id: str, start_ns: int, end_ns: int) -> Span:
+    def _append_span(self, context: TraceContext, service: str, kind: str, name: str, attributes: dict[str, AttributeValue], parent_span_id: str, start_ns: int, end_ns: int) -> Span:
         span: Span = {
             "trace_id": context["trace_id"],
             "span_id": self.span_id(),
@@ -402,7 +403,7 @@ class ObservabilityProvider(BaseProvider):
         context["spans"].append(span)
         return span
 
-    def _materialize_node(self, plan: dict, parent_span_id: str, start_ns: int, context: dict) -> Span:
+    def _materialize_node(self, plan: dict, parent_span_id: str, start_ns: int, context: TraceContext) -> Span:
         """Phase B: top-down start-time placement; emits spans in pre-order."""
         service, data, operation = plan["service"], plan["data"], plan["operation"]
         server_kind = "SERVER" if data["kind"] in ("http", "grpc") else "INTERNAL"
@@ -551,7 +552,7 @@ class ObservabilityProvider(BaseProvider):
             )
         return {"resourceSpans": resource_spans}
 
-    def _otlp_attributes(self, attributes: dict[str, AttributeValue]) -> list[dict]:
+    def _otlp_attributes(self, attributes: Mapping[str, AttributeValue]) -> list[dict]:
         encoded = []
         for key, value in attributes.items():
             if isinstance(value, bool):
