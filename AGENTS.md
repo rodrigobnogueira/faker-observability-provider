@@ -1,6 +1,8 @@
 # AGENTS.md — faker-observability-provider
 
 Guidance for AI agents and contributors working on this repository.
+`CONTRIBUTING.md` is the human-facing distillation of this file — when a rule
+here changes, update it there in the same commit.
 
 > **SYNTHETIC DATA NOTICE:** everything this provider generates is synthetic
 > test data that *mimics* real telemetry formats. It must never be presented
@@ -123,7 +125,14 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 python -m pytest
 python -m ruff check .
+python -m ruff format --check .
+python -m mypy --ignore-missing-imports --no-strict-optional .
 ```
+
+- **CI runs every tool the `dev` extra declares.** `tests.yml` has a lint job
+  that installs `-e ".[dev]"` and runs the same arguments as
+  `.pre-commit-config.yaml`. A tool that is declared but not wired into CI is
+  either added to that job or dropped from the extra — no third option.
 
 ## Publishing a release
 
@@ -147,3 +156,12 @@ Checklist:
 
 The tag must point at a commit that already contains `release.yml`
 (i.e., tag merged `main`), or the tag push won't trigger the workflow.
+
+## Renames
+
+A repo or package rename is not done until **every metadata surface** carries
+the new name in the same change: `pyproject.toml` `[project.urls]`, README
+badges and install snippets, the GitHub repo About/description, and any docs
+that spell out the old name. PyPI is the one surface a commit cannot fix — it
+serves the metadata of the last uploaded release — so pair the URL fix with a
+patch release, or the registry keeps pointing at the old name.

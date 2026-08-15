@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 
 from faker.providers import BaseProvider
 
 from . import constants
-from .types import AttributeValue, LogRecord, ObservabilityScenario, ServiceData, Span
+from .types import AttributeValue, LogRecord, ObservabilityScenario, ServiceData, Span, TraceContext
 
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -299,7 +300,7 @@ class ObservabilityProvider(BaseProvider):
             anchor = start_time
 
         plan = self._plan_node(root_service, depth=1, max_depth=max_depth)
-        context = {"trace_id": self.trace_id(), "spans": [], "resources": {}}
+        context: TraceContext = {"trace_id": self.trace_id(), "spans": [], "resources": {}}
         self._materialize_node(plan, parent_span_id="", start_ns=_to_unix_nano(anchor), context=context)
         spans: list[Span] = context["spans"]
         if error:
@@ -379,12 +380,12 @@ class ObservabilityProvider(BaseProvider):
         operation = self.random_element(tuple(dep_data["operations"]))
         return {"type": child_type, "service": dependency, "data": dep_data, "operation": operation, "visible_ns": duration_ns}
 
-    def _resource_for(self, service: str, context: dict) -> dict[str, str]:
+    def _resource_for(self, service: str, context: TraceContext) -> dict[str, str]:
         if service not in context["resources"]:
             context["resources"][service] = self.resource_attributes(service)
         return context["resources"][service]
 
-    def _append_span(self, context: dict, service: str, kind: str, name: str, attributes: dict[str, AttributeValue], parent_span_id: str, start_ns: int, end_ns: int) -> Span:
+    def _append_span(self, context: TraceContext, service: str, kind: str, name: str, attributes: dict[str, AttributeValue], parent_span_id: str, start_ns: int, end_ns: int) -> Span:
         span: Span = {
             "trace_id": context["trace_id"],
             "span_id": self.span_id(),
@@ -402,7 +403,7 @@ class ObservabilityProvider(BaseProvider):
         context["spans"].append(span)
         return span
 
-    def _materialize_node(self, plan: dict, parent_span_id: str, start_ns: int, context: dict) -> Span:
+    def _materialize_node(self, plan: dict, parent_span_id: str, start_ns: int, context: TraceContext) -> Span:
         """Phase B: top-down start-time placement; emits spans in pre-order."""
         service, data, operation = plan["service"], plan["data"], plan["operation"]
         server_kind = "SERVER" if data["kind"] in ("http", "grpc") else "INTERNAL"
@@ -414,9 +415,7 @@ class ObservabilityProvider(BaseProvider):
             if child["type"] == "hop":
                 callee = child["node"]
                 client_name, client_attributes = self._client_name_and_attributes(callee["service"], callee["data"], callee["operation"])
-                client_span = self._append_span(
-                    context, service, "CLIENT", client_name, client_attributes, server_span["span_id"], cursor, cursor + child["visible_ns"]
-                )
+                client_span = self._append_span(context, service, "CLIENT", client_name, client_attributes, server_span["span_id"], cursor, cursor + child["visible_ns"])
                 callee_server = self._materialize_node(callee, parent_span_id=client_span["span_id"], start_ns=cursor + child["overhead_ns"], context=context)
                 if "http.response.status_code" in client_span["attributes"] and "http.response.status_code" in callee_server["attributes"]:
                     client_span["attributes"]["http.response.status_code"] = callee_server["attributes"]["http.response.status_code"]
@@ -553,7 +552,7 @@ class ObservabilityProvider(BaseProvider):
             )
         return {"resourceSpans": resource_spans}
 
-    def _otlp_attributes(self, attributes: dict[str, AttributeValue]) -> list[dict]:
+    def _otlp_attributes(self, attributes: Mapping[str, AttributeValue]) -> list[dict]:
         encoded = []
         for key, value in attributes.items():
             if isinstance(value, bool):
@@ -581,10 +580,7 @@ class ObservabilityProvider(BaseProvider):
         if span["parent_span_id"]:
             encoded["parentSpanId"] = span["parent_span_id"]
         if span["events"]:
-            encoded["events"] = [
-                {"timeUnixNano": str(event["time_unix_nano"]), "name": event["name"], "attributes": self._otlp_attributes(event["attributes"])}
-                for event in span["events"]
-            ]
+            encoded["events"] = [{"timeUnixNano": str(event["time_unix_nano"]), "name": event["name"], "attributes": self._otlp_attributes(event["attributes"])} for event in span["events"]]
         return encoded
 
     # ------------------------------------------------------------------ #
@@ -780,10 +776,7 @@ class ObservabilityProvider(BaseProvider):
         return json.dumps(payload, separators=(",", ":"))
 
     def _render_logfmt(self, record: LogRecord) -> str:
-        line = (
-            f"time={record['timestamp'].strftime('%Y-%m-%dT%H:%M:%SZ')} level={record['level'].lower()} "
-            f'service={record["service"]} msg="{record["message"]}"'
-        )
+        line = f'time={record["timestamp"].strftime("%Y-%m-%dT%H:%M:%SZ")} level={record["level"].lower()} service={record["service"]} msg="{record["message"]}"'
         if record["trace_id"]:
             line += f" trace_id={record['trace_id']} span_id={record['span_id']}"
         return line
@@ -791,10 +784,7 @@ class ObservabilityProvider(BaseProvider):
     def _clf_prefix(self, record: LogRecord) -> str:
         user = self.random_element(("-", "-", "-", "-", "-", "-", "-", "frank", "alice", "bob"))
         size = str(record["http_bytes"]) if record["http_bytes"] else "-"
-        return (
-            f"{record['client_ip']} - {user} [{record['timestamp'].strftime('%d/%b/%Y:%H:%M:%S +0000')}] "
-            f'"{record["http_method"]} {record["http_path"]} HTTP/1.1" {record["http_status"]} {size}'
-        )
+        return f'{record["client_ip"]} - {user} [{record["timestamp"].strftime("%d/%b/%Y:%H:%M:%S +0000")}] "{record["http_method"]} {record["http_path"]} HTTP/1.1" {record["http_status"]} {size}'
 
     def _render_apache_common(self, record: LogRecord) -> str:
         return self._clf_prefix(record)
@@ -834,10 +824,7 @@ class ObservabilityProvider(BaseProvider):
             structured_data = f'[trace@32473 trace_id="{record["trace_id"]}" span_id="{record["span_id"]}"]'
         else:
             structured_data = "-"
-        return (
-            f"<{self._syslog_pri(record['level'])}>1 {timestamp} {record['hostname']} "
-            f"{record['service']} {record['pid']} - {structured_data} {record['message']}"
-        )
+        return f"<{self._syslog_pri(record['level'])}>1 {timestamp} {record['hostname']} {record['service']} {record['pid']} - {structured_data} {record['message']}"
 
     def _render_nginx_error(self, record: LogRecord) -> str:
         nginx_level = _APACHE_LEVELS[record["level"]]

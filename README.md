@@ -19,12 +19,12 @@ from faker_observability import ObservabilityProvider
 fake = Faker()
 fake.add_provider(ObservabilityProvider)
 
-fake.traceparent()   # '00-7072ef7b6625afeb5efe109b815d7258-e86a5da65f5eef2f-01'
+fake.traceparent()  # '00-7072ef7b6625afeb5efe109b815d7258-e86a5da65f5eef2f-01'
 fake.log_line(fmt="logfmt")
 # time=2026-07-06T03:00:38Z level=warn service=checkout-service msg="cache miss rate elevated"
 
-spans = fake.trace(root_service="api-gateway", error=True)   # a correlated span tree
-otlp = fake.otlp_json(spans)                                  # OTLP/JSON ResourceSpans envelope
+spans = fake.trace(root_service="api-gateway", error=True)  # a correlated span tree
+otlp = fake.otlp_json(spans)  # OTLP/JSON ResourceSpans envelope
 ```
 
 💡 **Tip**: Run `python showcase.py` to see every feature end to end.
@@ -149,6 +149,10 @@ Formats are implemented against: W3C Trace Context (`00` version), OpenTelemetry
 ## Disclaimer
 
 All generated data is **synthetic test data** for development and testing only. Names, formats, and topologies mimic real systems so records look realistic, but nothing here describes any real infrastructure or real telemetry.
+
+## Contributing
+
+Issues and PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the checks CI runs, and the determinism, trace/log and catalog rules a change has to keep.
 
 ## License
 
