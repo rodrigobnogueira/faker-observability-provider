@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "faker-observability-provider"
-version = "1.0.0"
+version = "1.0.1"
 description = "Generate realistic observability test data: correlated OpenTelemetry-style trace trees, log lines in 9 formats (JSON, logfmt, Apache, syslog, nginx), W3C trace contexts, Kubernetes metadata, and per-language stacktraces"
 readme = "README.md"
 authors = [{name = "Rodrigo Nogueira", email = "rodrigo.b.nogueira@gmail.com"}]
@@ -43,7 +43,7 @@ where = ["."]
 
 [tool.ruff]
 line-length = 200
-target-version = "py313"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
