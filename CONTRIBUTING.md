@@ -13,7 +13,7 @@ two disagree, `AGENTS.md` wins — and please fix the drift in the same PR.
 
 ## Supported versions
 
-- **Python 3.10 – 3.14** (`requires-python = ">=3.10"`; every version in the
+- **Python 3.11 – 3.15** (`requires-python = ">=3.11"`; every version in the
   classifier list is exercised by the CI matrix).
 - **Faker `>=18.0.0`** — the only runtime dependency. Adding a second runtime
   dependency is a design change: open an issue first.
@@ -31,7 +31,7 @@ pre-commit install     # optional, but it runs the same tools as CI
 ## Checks you must run
 
 These four commands are exactly what the `Tests` workflow runs (the pytest
-matrix on 3.10–3.14, the lint job once), and they match the arguments in
+matrix on 3.11–3.15, the lint job once), and they match the arguments in
 `.pre-commit-config.yaml`:
 
 ```bash
