@@ -150,7 +150,7 @@ Checklist:
 3. Run `python -m pytest`, `python -m build`, and `twine check dist/*`
    locally.
 4. Commit the bump, then push a matching `vX.Y.Z` tag — the workflow tests
-   (3.10 + 3.14), builds, verifies tag == pyproject version, and publishes.
+   (3.11 + 3.15), builds, verifies tag == pyproject version, and publishes.
 5. Verify on PyPI and smoke-test a clean install
    (`pip install faker-observability-provider`).
 
